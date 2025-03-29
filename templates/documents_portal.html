@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documents Portal - ISLA University</title>
+    <link rel="stylesheet" href="/static/dashboard.css">
+    <style>
+        /* Custom styles for document portal */
+        .documents-list {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .document-item {
+            background-color: #f7f7f7;
+            padding: 15px;
+            margin: 10px 0;
+            width: 80%;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .document-item span {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .btn-download {
+            background-color: #007bff;
+            color: white;
+            padding: 8px 15px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-download:hover {
+            background-color: #0056b3;
+        }
+
+        .no-documents {
+            font-size: 1.2rem;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <div class="chatbot-container">
+        <div class="chatbot-header">
+            <img src="/static/logo.png" alt="University Logo">
+            <div class="header-buttons">
+                <button onclick="window.location.href='/options'" class="chatbot-button">Back to Options</button>
+                <button onclick="window.location.href='/'" class="logout-button">Logout</button>
+            </div>
+        </div>        
+        <div class="chatbot-body">
+            <h2>Documents Portal</h2>
+            <p>Welcome, {{ session['student_id'] }}! Below is a list of your available documents:</p>
+
+            <div class="documents-list">
+                {% if documents %}
+                    {% for document in documents %}
+                        <div class="document-item">
+                            <span>{{ document }}</span>
+                            <a href="/download/{{ session['student_id'] }}/{{ document }}" class="btn-download">Download</a>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="no-documents">No documents are available at the moment.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professor Dashboard - ISLA University</title>
+    <link rel="stylesheet" href="/static/dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+    <style>
+        .reminder-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f9f9f9;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .reminder-item strong {
+            font-size: 1.1rem;
+            flex-grow: 1;
+        }
+
+        .reminder-icons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .reminder-icons i {
+            cursor: pointer;
+            color: #007bff;
+            margin-left: 10px;
+        }
+
+        .reminder-icons i:hover {
+            color: #0056b3;
+        }
+
+        .delete-icon {
+            color: #dc3545;
+        }
+
+        .delete-icon:hover {
+            color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="chatbot-container">
+        <div class="chatbot-header">
+            <img src="static/logo.png" alt="University Logo">
+            <div class="header-buttons">
+                <button onclick="window.location.href='/professor-reminders'" class="chatbot-button">Chatbot</button>
+                <button onclick="window.location.href='/'" class="logout-button">Logout</button>
+            </div>
+        </div>        
+        <div class="chatbot-body">
+            <h2>Professor Dashboard</h2>
+            <form id="add-reminder-form" method="POST" action="/professor-dashboard">
+                <div class="input-group">
+                    <label for="reminder_type">Reminder Type</label>
+                    <input type="text" id="reminder_type" name="reminder_type" required>
+                </div>
+                <div class="input-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" required></textarea>
+                </div>
+                <div class="input-group">
+                    <label for="due_date">Due Date</label>
+                    <input type="date" id="due_date" name="due_date" required>
+                </div>
+                <button type="submit" class="add-button">Add Reminder</button>
+            </form>
+
+            <div class="reminders-list">
+                <h3>Your Current Reminders</h3>
+                {% if reminders %}
+                    <ul>
+                        {% for reminder in reminders %}
+                            <li class="reminder-item">
+                                <strong>{{ reminder.type }}</strong>: {{ reminder.description }} (Due: {{ reminder.due_date }})
+                                <div class="reminder-icons">
+                                    <i class="fas fa-edit" onclick="editReminder('{{ loop.index0 }}', '{{ reminder.type }}', '{{ reminder.description }}', '{{ reminder.due_date }}')"></i>
+                                    <i class="fas fa-trash delete-icon" onclick="deleteReminder('{{ loop.index0 }}')"></i>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No reminders available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function editReminder(index, type, description, due_date) {
+            // Populate the form with the reminder details
+            document.getElementById('reminder_type').value = type;
+            document.getElementById('description').value = description;
+            document.getElementById('due_date').value = due_date;
+
+            // Send edit request
+            const form = document.getElementById('add-reminder-form');
+            form.action = `/professor-dashboard/edit/${index}`;
+        }
+
+        function deleteReminder(index) {
+            if (confirm('Are you sure you want to delete this reminder?')) {
+                window.location.href = `/professor-dashboard/delete/${index}`;
+            }
+        }
+    </script>
+</body>
+</html>
