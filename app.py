@@ -476,7 +476,6 @@ def webhook():
             logging.error("Invalid token or session expired")
             raise ValueError("Invalid token or session expired")
 
-       
         active_bot = session.get('active_bot', None)  
         
         message = req.get('queryResult', {}).get('queryText', '').lower()
@@ -485,134 +484,112 @@ def webhook():
         logging.debug(f"Received message: {message}")
         logging.debug(f"Determined intent: {intent}")
         
-       
-        if active_bot == 'questions':
-            
-            # Handling greetings
-            if message.strip().lower() in ['hello', 'hi', 'olá', 'oi']:
-                return jsonify({'fulfillmentText': "Hello! How can I assist you with your questions today?"})
-            
-            # Handling thank you/thanks responses
-            if message.strip().lower() in ['thank you', 'thanks', 'obrigado', 'obrigada']:
-                return jsonify({'fulfillmentText': "You're welcome! If you have more questions, feel free to ask."})
-            
-            return handle_question_query(message)
-
-        elif active_bot == 'documents':
-           
-            if message.strip().lower() in ['hello', 'hi', 'olá', 'oi']:
+        # Common greetings and thanks responses across all bots
+        if message.strip().lower() in ['hello', 'hi', 'olá', 'oi']:
+            greeting_responses = {
+                'questions': "Hello! How can I assist you with your questions today?",
+                'documents': "Hi, welcome to ISLA University Documents Bot! Could you please provide your first name?",
+                'coursework': "Hello! How can I assist you with your coursework today?"
+            }
+            if active_bot == 'documents':
                 session['greeted'] = True
                 session['collecting_details'] = True
                 session['details_step'] = 'name'
-                return jsonify({'fulfillmentText': "Hi, welcome to ISLA University Documents Bot! Could you please provide your first name?"})
-            
-            if message.strip().lower() in ['thank you', 'thanks', 'obrigado', 'obrigada']:
-                return jsonify({'fulfillmentText': "You're welcome! If you have more questions, feel free to ask."})
+            return jsonify({'fulfillmentText': greeting_responses.get(active_bot, "Hello! How can I help you?")})
 
-            
+        if message.strip().lower() in ['thank you', 'thanks', 'obrigado', 'obrigada']:
+            return jsonify({'fulfillmentText': "You're welcome! If you have more questions, feel free to ask."})
+
+        # Bot-specific handling
+        if active_bot == 'questions':
+            return handle_question_query(message)
+
+        elif active_bot == 'documents':
+            # Document request collection flow
             if 'collecting_details' in session and session['collecting_details']:
-                if session['details_step'] == 'name':
-                    session['student_name'] = message
-                    session['details_step'] = 'last_name'
-                    return jsonify({'fulfillmentText': "Thank you! Could you please provide your last name?"})
+                steps = {
+                    'name': ('first name', 'last_name'),
+                    'last_name': ('last name', 'student_id'),
+                    'student_id': ('Student ID', 'course'),
+                    'course': ('course', 'reason'),
+                    'reason': ('reason', None)
+                }
                 
-                elif session['details_step'] == 'last_name':
-                    session['student_last_name'] = message
-                    session['details_step'] = 'student_id'
-                    return jsonify({'fulfillmentText': "Got it! Now, please provide your Student ID."})
-                
-                elif session['details_step'] == 'student_id':
-                    session['student_id'] = message
-                    session['details_step'] = 'course'
-                    return jsonify({'fulfillmentText': "Great! Which course are you enrolled in?"})
-                
-                elif session['details_step'] == 'course':
-                    session['course'] = message
-                    session['details_step'] = 'reason'
-                    return jsonify({'fulfillmentText': "Finally, please provide the reason for your document request."})
-                
-                elif session['details_step'] == 'reason':
-                    session['reason'] = message
-                    session['collecting_details'] = False
-                    response_text = "Thank you for providing your details! How can I assist you today?"
-                    return jsonify({'fulfillmentText': response_text})
+                if session['details_step'] in steps:
+                    current_step, next_step = steps[session['details_step']]
+                    if next_step:
+                        session[f'student_{current_step.replace(" ", "_")}'] = message
+                        session['details_step'] = next_step
+                        return jsonify({'fulfillmentText': f"Thank you! Could you please provide your {next_step.replace('_', ' ')}?"})
+                    else:
+                        session['reason'] = message
+                        session['collecting_details'] = False
+                        return jsonify({'fulfillmentText': "Thank you for providing your details! How can I assist you today?"})
 
-         
-            if 'greeted' in session and 'student_name' in session:  
-                if any(keyword in message for keyword in [
-        'transcript', 'enrollment verification', 'certificate', 'documents', 'financial aid document', 
-        'graduation documents', 'student ID replacement', 'academic probation letter', 
-        'course completion certificate', 'internship verification', 'fee payment receipt', 
-        'scholarship confirmation', 'visa letter', 'health insurance card', 'academic appeal form', 
-        'disciplinary action notice', 'residency verification', 'research participation confirmation', 
-        'letter of recommendation request', 'student housing application', 'enrollment/registration certificate', 
-        'diploma/graduation certificate', 'attendance certificate', 'course syllabus', 'program description', 
-        'financial aid or scholarship documentation', 'internship agreement forms', 'tuition payment receipt', 
-        'proof of english proficiency', 'proof of portuguese proficiency', 'examination results', 
-        'change of course request', 'request for academic leave', 'visa support letter','document','registration document'
-    ]):
-                    response_text = handle_document_request(message, session['student_id'])
-                    return jsonify({'fulfillmentText': response_text})
-                
-                
-                elif 'status' in message or 'track' in message or 'ticket' in message:
-                    response_text = track_ticket_status(session['student_id'])
-                    return jsonify({'fulfillmentText': response_text})
-                
-               
-                if 'yes' in message or 'no' in message:
-                    follow_up_response = handle_follow_up(message)
-                    return jsonify({'fulfillmentText': follow_up_response})
-
+            # Document-specific keywords
+            document_keywords = [
+                'transcript', 'enrollment verification', 'certificate', 'documents', 'financial aid document',
+                'graduation documents', 'student ID replacement', 'academic probation letter',
+                'course completion certificate', 'internship verification', 'fee payment receipt',
+                'scholarship confirmation', 'visa letter', 'health insurance card', 'academic appeal form',
+                'disciplinary action notice', 'residency verification', 'research participation confirmation',
+                'letter of recommendation request', 'student housing application', 'enrollment/registration certificate',
+                'diploma/graduation certificate', 'attendance certificate', 'course syllabus', 'program description',
+                'financial aid or scholarship documentation', 'internship agreement forms', 'tuition payment receipt',
+                'proof of english proficiency', 'proof of portuguese proficiency', 'examination results',
+                'change of course request', 'request for academic leave', 'visa support letter', 'document', 'registration document'
+            ]
             
-            ticket_number = extract_ticket_number(message)
-            if ticket_number:
-                response_text = track_ticket_by_number(ticket_number, session['student_id'])
+            if any(keyword in message for keyword in document_keywords):
+                response_text = handle_document_request(message, session.get('student_id', student_id))
+                return jsonify({'fulfillmentText': response_text})
+            
+            # Ticket status tracking
+            if 'status' in message or 'track' in message or 'ticket' in message:
+                ticket_number = extract_ticket_number(message)
+                if ticket_number:
+                    response_text = track_ticket_by_number(ticket_number, session.get('student_id', student_id))
+                else:
+                    response_text = track_ticket_status(session.get('student_id', student_id))
                 return jsonify({'fulfillmentText': response_text})
 
-           
+            # Follow-up responses
+            if 'yes' in message or 'no' in message:
+                follow_up_response = handle_follow_up(message)
+                return jsonify({'fulfillmentText': follow_up_response})
+
+            # Fallback for document-related queries
             if 'document' in message or 'status' in message or 'track' in message:
-                response_text = handle_general_request(message, session['student_id'])
+                response_text = handle_general_request(message, session.get('student_id', student_id))
                 return jsonify({'fulfillmentText': response_text})
-            
             
             return jsonify({'fulfillmentText': "I'm sorry, I couldn't process your request. Could you clarify what you need?"})
 
-
         elif active_bot == 'coursework':
+            # Coursework-specific keywords
+            coursework_keywords = {
+                'instructor': ['instructor', 'teacher', 'professor', 'quem é o professor'],
+                'ects': ['ects', 'credit', 'créditos'],
+                'contact_hours': ['contact hour', 'hours', 'horas', 'contacto'],
+                'syllabus': ['syllabus', 'plano de estudos']
+            }
             
-            if message.strip().lower() in ['hello', 'hi', 'olá', 'oi']:
-                return jsonify({'fulfillmentText': "Hello! How can I assist you with your coursework today?"})
+            for category, keywords in coursework_keywords.items():
+                if any(keyword in message.lower() for keyword in keywords):
+                    return handle_course_query(message)
             
-            if message.strip().lower() in ['thank you', 'thanks', 'obrigado', 'obrigada']:
-                return jsonify({'fulfillmentText': "You're welcome! If you have more questions, feel free to ask."})
+            # If no specific keywords matched, try the course query with fuzzy matching and Groq fallback
+            response = handle_course_query(message)
+            if "couldn't find" not in response.get_data(as_text=True).lower():
+                return response
             
-           
-            
-            if any(keyword in message.lower() for keyword in ['instructor', 'teacher', 'professor', 'quem é o professor']):
-                return handle_course_query(message)
-            
-            
-            elif any(keyword in message.lower() for keyword in ['ects', 'credit', 'créditos']):
-                return handle_course_query(message)
-            
-            
-            elif any(keyword in message.lower() for keyword in ['contact hour', 'hours', 'horas', 'contacto']):
-                return handle_course_query(message)
-            
-           
-            elif any(keyword in message.lower() for keyword in ['syllabus', 'plano de estudos']):
-                return handle_course_query(message)
-            else:
-                return jsonify({'fulfillmentText': "I didn't quite catch that. Can you ask about the instructor, ECTS, contact hours, or syllabus of a course?"})
+            return jsonify({'fulfillmentText': "I didn't quite catch that. Can you ask about the instructor, ECTS, contact hours, or syllabus of a course?"})
 
-        
         return jsonify({'fulfillmentText': "I'm sorry, I didn't understand your request. Could you please clarify?"})
 
     except Exception as e:
         logging.error(f"Error processing request: {e}")
         return jsonify({'fulfillmentText': 'Sorry, there was an error processing your request.'})
-
 def extract_ticket_number(message):
    
     match = re.search(r'\b([A-F0-9]{8})\b', message.upper())  
@@ -843,36 +820,55 @@ def token_match(query, choices, threshold=2):
 def handle_course_query(message):
     logging.debug(f"Received query: {message}")
     
-  
+    # First try exact matching
     language = detect_language(message)
     logging.debug(f"Detected language: {language}")
-    
     
     cleaned_message = clean_text(message, language=language)
     logging.debug(f"Cleaned message for matching: {cleaned_message}")
 
-   
     question_map = {}
-    
     
     for intent in course_questions['intents']:
         cleaned_question = clean_text(intent['question'], language=language)
         question_map[cleaned_question] = intent['id']
 
-   
     if cleaned_message in question_map:
         matched_id = question_map[cleaned_message]
         logging.debug(f"Exact match found with ID: {matched_id}")
-        
         
         for intent in course_questions['intents']:
             if intent['id'] == matched_id:
                 return jsonify({'fulfillmentText': intent['response']})
 
-    
-    logging.warning(f"No matching question found for: {message}")
-    return jsonify({'fulfillmentText': "Sorry, I couldn't find the information you're asking for."})
+    # If no exact match, try fuzzy matching
+    best_match = None
+    best_score = 0
 
+    for intent in course_questions.get("intents", []):
+        question = intent.get("question", "").lower()
+        score = fuzz.partial_ratio(message.lower(), question)
+        
+        if score > best_score:
+            best_score = score
+            best_match = intent
+
+    if best_score > 75:
+        return jsonify({'fulfillmentText': best_match.get("response")})
+    
+    # If no good fuzzy match, use Groq model
+    try:
+        response = client.chat.completions.create(
+            model="llama3-70b-8192",  # or "llama3-8b-8192" depending on your needs
+            messages=[{
+                "role": "user", 
+                "content": f"Answer briefly about university courses (1-2 sentences): {message}"
+            }]
+        )
+        return jsonify({'fulfillmentText': response.choices[0].message.content})
+    except Exception as e:
+        logging.error(f"Groq error: {e}")
+        return jsonify({'fulfillmentText': "Sorry, I couldn't find the information you're asking for."})
 
 def handle_question_query(message):
     message = message.lower()
